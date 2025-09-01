@@ -17,9 +17,9 @@ DESCRIPTION="ZABBIX is software for monitoring of your applications, network and
 HOMEPAGE="https://www.zabbix.com/"
 MY_P=${P/_/}
 MY_PV=${PV/_/}
-SRC_URI="https://cdn.zabbix.com/${PN}/sources/stable/$(ver_cut 1-2)/${P}.tar.gz
-	agent2? ( https://dev.gentoo.org/~fordfrog/distfiles/${P}-go-deps.tar.xz )
-"
+SRC_URI="https://cdn.zabbix.com/${PN}/sources/stable/$(ver_cut 1-2)/${P}.tar.gz"
+#	agent2? ( https://dev.gentoo.org/~fordfrog/distfiles/${P}-go-deps.tar.xz )
+#"
 
 S=${WORKDIR}/${MY_P}
 
@@ -114,7 +114,9 @@ BDEPEND="
 "
 
 # upstream tests fail for agent2
-RESTRICT="test"
+#RESTRICT="test"
+RESTRICT="test network-sandbox"
+
 
 PATCHES=(
 	"${FILESDIR}/${PN}-4.0.18-modulepathfix.patch"
@@ -134,6 +136,16 @@ pkg_setup() {
 
 src_prepare() {
 	default
+	if use agent2; then
+		pushd src/go || die
+		mkdir -p go-mod || die
+		export GOPROXY="https://proxy.golang.org,direct"
+		go mod download -modcacherw || die
+		export GOMODCACHE="${PWD}/go-mod"
+		go mod download -modcacherw || die
+		popd || die
+	fi
+
 
 	# Since we patch configure.ac with e.g., ${PN}-6.4.0-configure-sscanf.patch".
 	eautoreconf
@@ -167,6 +179,9 @@ src_configure() {
 }
 
 src_compile() {
+	if use agent2; then
+		export GOMODCACHE="${S}/src/go/go-mod"
+	fi
 	if [ -f Makefile ] || [ -f GNUmakefile ] || [ -f makefile ]; then
 		emake AR="$(tc-getAR)" RANLIB="$(tc-getRANLIB)"
 	fi
